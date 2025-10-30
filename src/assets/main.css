@@ -1,0 +1,17 @@
+/* --- main.css の中身をこれで完全に置き換えてOK --- */
+
+body {
+  margin: 0;
+  background-color: #222;
+}
+
+#app {
+  font-weight: normal;
+  display: flex; /* ← これが超重要 */
+  flex-direction: column; /* ← これが超重要 (縦に並べる) */
+  height: 100dvh; /* ← これが超重要 (画面の高さピッタリに) */
+}
+
+/* @media (...) { ... } などの他の初期スタイルがあれば、
+  それも削除してしまって大丈夫だよ。
+*/
