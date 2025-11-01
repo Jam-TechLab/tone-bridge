@@ -13,7 +13,6 @@ const emit = defineEmits(['change-key'])
       <button class="key-btn" @click="emit('change-key', 'prev')">&lt;</button>
 
       <div class="key-name">
-        <span>Key:</span>
         <strong class="current-key">{{ currentKey }}</strong>
       </div>
 
@@ -36,18 +35,26 @@ const emit = defineEmits(['change-key'])
 .key-display {
   font-size: 1.2rem;
   line-height: 1;
-  display: flex;
-  justify-content: space-between;
+
+  /* ↓↓↓ flex から grid に変更！ ↓↓↓ */
+  display: grid;
+  grid-template-columns: 40px 1fr 40px; /* ボタン(40px), ラベル(残り全部), ボタン(40px) */
   align-items: center;
+  gap: 10px; /* 隙間 */
+
   max-width: 300px;
   margin: 0 auto;
 }
 
 .current-key {
-  margin-left: 10px;
+  margin: 0;
   color: #42b883;
   font-size: 1.4rem;
   font-family: 'Menlo', 'Monaco', monospace;
+
+  /* flex-grow: 1; ← gridにしたので不要 */
+  text-align: center;
+  /* padding: 0 10px; ← gridのgapが代わりになるので不要 */
 }
 
 .key-btn {
@@ -55,11 +62,12 @@ const emit = defineEmits(['change-key'])
   background: none;
   border: 1px solid #444;
   color: white;
-  width: 40px;
+  width: 40px; /* gridの列幅と一致 */
   height: 40px;
   border-radius: 50%;
   cursor: pointer;
   line-height: 1;
+  flex-shrink: 0; /* gridなので不要だが、念のため残してもOK */
 }
 .key-btn:active {
   background-color: #333;

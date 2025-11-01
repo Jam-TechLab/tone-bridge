@@ -36,7 +36,7 @@ const handleChangeKey = (direction) => {
 
 // === 2. 鍵盤データ ===
 const keys = [
-  // Octave 3 (白鍵のleftは 52.5 ずつ増える)
+  // Octave 3
   { note: 'C3', type: 'white', left: 0 },
   { note: 'C#3', type: 'black', left: 36.75 },
   { note: 'D3', type: 'white', left: 52.5 },
@@ -49,7 +49,7 @@ const keys = [
   { note: 'A3', type: 'white', left: 262.5 },
   { note: 'A#3', type: 'black', left: 299.25 },
   { note: 'B3', type: 'white', left: 315 },
-  // Octave 4 (367.5からスタート)
+  // Octave 4
   { note: 'C4', type: 'white', left: 367.5 },
   { note: 'C#4', type: 'black', left: 404.25 },
   { note: 'D4', type: 'white', left: 420 },
@@ -62,7 +62,7 @@ const keys = [
   { note: 'A4', type: 'white', left: 630 },
   { note: 'A#4', type: 'black', left: 666.75 },
   { note: 'B4', type: 'white', left: 682.5 },
-  // Octave 5 (735からスタート)
+  // Octave 5
   { note: 'C5', type: 'white', left: 735 },
   { note: 'C#5', type: 'black', left: 771.75 },
   { note: 'D5', type: 'white', left: 787.5 },
@@ -89,155 +89,58 @@ const relativeKeyData = computed(() => {
   return keys.map((key) => {
     const noteName = key.note.slice(0, -1)
     const noteIndex = noteNameMap.indexOf(noteName)
-    const relativeLabel = degreeMap[noteIndex]
+    // ↓↓↓ 修正点！ currentKeyIndex を削除！ ↓↓↓
+    const relativeLabel = degreeMap[noteIndex] // Cは常にI, C#は常にI♯
     return { ...key, relativeLabel: relativeLabel }
   })
 })
 
 // === 5. スライドロジック ===
-// 1. 定数を定義
-const WHITE_KEY_WIDTH = 52.5 // 基準となる白鍵の幅
-const OCTAVE_WIDTH = WHITE_KEY_WIDTH * 7 // 1オクターブの合計幅 (7白鍵)
-const SEMITONE_WIDTH = OCTAVE_WIDTH / 12 // 1半音あたりのピクセル幅 (30.625px)
+const WHITE_KEY_WIDTH = 52.5
+const OCTAVE_WIDTH = WHITE_KEY_WIDTH * 7
+const SEMITONE_WIDTH = OCTAVE_WIDTH / 12
 
-// 2. キー切り替え専用のスライド量を計算
 const slideOffset = computed(() => {
-  // currentKeyIndex (0=C, 1=C♯...) を取得
   const semitoneIndex = currentKeyIndex.value
-
-  // 1半音あたりの幅(30.625px) * インデックス数 で、
-  // 常に一定の幅でスライドするように計算する
-  // (C - G) のロジック (左に動かす) なので、マイナスを付ける
   return semitoneIndex * SEMITONE_WIDTH * -1
 })
 
-// === ガイドラインデータ ===
-// const OCTAVE_OFFSET = 367.5; // ← この一行を丸ごと削除！
-const NUM_SEMITONES_TO_DRAW = keys.length // 描画する半音の総数 (3オクターブ分)
-
-// ガイドラインの位置データを生成
-const guideLines = computed(() => {
-  const lines = []
-  for (let i = 0; i < NUM_SEMITONES_TO_DRAW; i++) {
-    lines.push({
-      index: i,
-      left: i * SEMITONE_WIDTH,
-      // オクターブと半音名を取得 (例: C4, C#4, D4...)
-      note: transposeNote('C4', i), // C4を基準にi半音移調した音名
-    })
-  }
-  return lines
-})
-
-// ハイライトされるべきラインのSet (computedでリアルタイム更新)
-const highlightedLines = computed(() => {
-  const highlighted = new Set()
-
-  // 固定されている鍵盤が押されている音名を取得
-  const fixedKeyboardPressedNotes = new Set()
-
-  // 上の鍵盤が固定の場合
-  if (isTopKeyboardFixed.value) {
-    if (isAbsoluteOnTop.value) {
-      // 上が絶対音で固定されている
-      for (const note of pressedKeys.value) {
-        fixedKeyboardPressedNotes.add(note) // 押された音をそのまま使う
-      }
-    } else {
-      // 上が相対音で固定されている
-      for (const note of pressedKeys.value) {
-        // 押された音を絶対音に戻す (逆移調)
-        fixedKeyboardPressedNotes.add(transposeNote(note, -currentKeyIndex.value))
-      }
-    }
-  }
-  // 下の鍵盤が固定の場合 (isTopKeyboardFixed.valueがfalse)
-  else {
-    if (!isAbsoluteOnTop.value) {
-      // 下が絶対音で固定されている
-      for (const note of pressedKeys.value) {
-        fixedKeyboardPressedNotes.add(note)
-      }
-    } else {
-      // 下が相対音で固定されている
-      for (const note of pressedKeys.value) {
-        fixedKeyboardPressedNotes.add(transposeNote(note, -currentKeyIndex.value))
-      }
-    }
-  }
-
-  // 取得した固定鍵盤の押された音名に基づいて、ガイドラインをハイライト
-  for (const pressedNote of fixedKeyboardPressedNotes) {
-    const noteName = pressedNote.slice(0, -1) // 'C4' -> 'C'
-    const octave = parseInt(pressedNote.slice(-1)) // 'C4' -> 4
-
-    // 'C'のインデックスは0、'C#'は1...
-    const semitoneOffsetFromC = noteNameMap.indexOf(noteName)
-    if (semitoneOffsetFromC !== -1) {
-      // 全体の半音インデックスを計算 (例: C3は0+12=12, C4は12+12=24, C5は24+12=36)
-      // keys配列はC3から始まるので、C3=0, C#3=1, ..., B5=35 となる
-      const globalSemitoneIndex = (octave - 3) * 12 + semitoneOffsetFromC
-      highlighted.add(globalSemitoneIndex)
-    }
-  }
-
-  return highlighted
-})
-
 // === 6. スワイプロジック ===
-// ↓ baseC4Leftの定義が消えたので、swipeOffsetの初期値も修正！
-const baseC4Left = keys.filter((key) => key.note === 'C4')[0].left // C4の初期位置だけは取得
-const swipeOffset = ref(-baseC4Left) // 確定したスワイプ量 (初期位置をC4に)
+const baseC4Left = keys.filter((key) => key.note === 'C4')[0].left
+const swipeOffset = ref(-baseC4Left)
 const touchStartX = ref(0)
 const touchMoveOffset = ref(0)
 const swipeMode = ref(false)
 
-// スワイプだけの合計オフセット（これは両方の鍵盤で共通！）
 const totalSwipeOffset = computed(() => {
   return swipeOffset.value + touchMoveOffset.value
 })
 
-// --- 最終的なトランスフォーム値を計算 ---
-
-// 上の鍵盤のトランスフォーム値
 const topKeyboardTransform = computed(() => {
-  let totalOffset = totalSwipeOffset.value // 1. スワイプ量は常に追加
-
+  let totalOffset = totalSwipeOffset.value
   const isTopKeyboardMoving = !isTopKeyboardFixed.value
   const isTopKeyboardAbsolute = isAbsoluteOnTop.value
-
-  // 2. もし「上の鍵盤が動く」設定なら
   if (isTopKeyboardMoving) {
     if (isTopKeyboardAbsolute) {
-      // 動くのが絶対音なら、左にスライド (C - G)
       totalOffset += slideOffset.value
     } else {
-      // 動くのが相対音なら、右にスライド -(C - G) = (G - C)
       totalOffset -= slideOffset.value
     }
   }
-
   return `translateX(${totalOffset}px)`
 })
 
-// 下の鍵盤のトランスフォーム値
 const bottomKeyboardTransform = computed(() => {
-  let totalOffset = totalSwipeOffset.value // 1. スワイプ量は常に追加
-
-  const isBottomKeyboardMoving = isTopKeyboardFixed.value // 上が固定なら下が動く
-  const isBottomKeyboardAbsolute = !isAbsoluteOnTop.value // 上が絶対音でなければ、下が絶対音
-
-  // 2. もし「下の鍵盤が動く」設定なら
+  let totalOffset = totalSwipeOffset.value
+  const isBottomKeyboardMoving = isTopKeyboardFixed.value
+  const isBottomKeyboardAbsolute = !isAbsoluteOnTop.value
   if (isBottomKeyboardMoving) {
     if (isBottomKeyboardAbsolute) {
-      // 動くのが絶対音なら、左にスライド (C - G)
       totalOffset += slideOffset.value
     } else {
-      // 動くのが相対音なら、右にスライド -(C - G) = (G - C)
       totalOffset -= slideOffset.value
     }
   }
-
   return `translateX(${totalOffset}px)`
 })
 
@@ -310,43 +213,117 @@ watch(pressedKeys, (newKeys, oldKeys) => {
 
 // === 9. ラベル計算関数 ===
 // --- 縦画面用 ---
-const getAbsoluteLabel = (key) => key.note.slice(0, -1)
-const getRelativeLabel = (key) => key.relativeLabel
-
-// --- 横画面用 ---
-// 絶対音ラベル（特殊ルール適用）
-const getLandscapeAbsoluteLabel = (key) => {
+const getAbsoluteLabel = (key) => {
   const noteName = key.note.slice(0, -1)
-  // ♯♭が付かない音名 ['C', 'D', 'E', 'F', 'G', 'A', 'B'] だけラベルを返す
-  if (noteName.length === 1 && noteName >= 'A' && noteName <= 'G') {
+  if (noteName.length === 1) {
+    // ♯♭なし
     return noteName
   }
-  return '' // ♯♭が付く音の場合は空文字
+  return ''
 }
-
-// 相対音ラベル（特殊ルール適用）
-// 相対音ラベル（特殊ルール適用）
-const getLandscapeRelativeLabel = (key) => {
-  // 鍵盤の音名 ('C3' -> 'C') を取り出す
-  const noteName = key.note.slice(0, -1)
-  // その音名のインデックス (0〜11) を見つける
-  const noteIndex = noteNameMap.indexOf(noteName)
-
-  // 翻訳ロジック！
-  const relativeIndex = (noteIndex - currentKeyIndex.value + 12) % 12
-
-  // ♯♭が付かない音階 ('I', 'II', 'III', 'IV', 'V', 'VI', 'VII') かどうかチェック
-  const isDiatonic = [0, 2, 4, 5, 7, 9, 11].includes(relativeIndex)
-
+const getRelativeLabel = (key) => {
+  const isDiatonic = !['I♯', 'II♯', 'IV♯', 'V♯', 'VI♯'].includes(key.relativeLabel)
   if (isDiatonic) {
-    // 幹音ならラベルを返す（鍵盤の色は問わない！）
-    return degreeMap[relativeIndex]
+    return key.relativeLabel
   }
-
-  return '' // 派生音（♯♭付き）なら空文字
+  return ''
 }
 
-// ... (landscapeTransform の定義が続く) ...
+// --- 横画面用 ---
+// ↓↓↓ 2つの関数を「computed」に格上げ！ ↓↓↓
+
+const getLandscapeAbsoluteLabel = computed(() => {
+  return (key) => {
+    // 関数を返す
+    const transposedNote = transposeNote(key.note, currentKeyIndex.value)
+    const noteName = transposedNote.slice(0, -1)
+    if (noteName.length === 1) {
+      // ♯♭なし
+      return noteName
+    }
+    return ''
+  }
+})
+
+// 相対音ラベル（特殊ルール適用）
+const getLandscapeRelativeLabel = computed(() => {
+  return (key) => {
+    // 関数を返す
+    // ↓↓↓ 修正点！ 移調（transpose）するのをやめる ↓↓↓
+    const noteName = key.note.slice(0, -1) // 'C3' -> 'C'
+    const noteIndex = noteNameMap.indexOf(noteName) // 'C' -> 0
+
+    if (noteIndex === -1) return '' // 念のため
+
+    // ↓↓↓ 修正点！ currentKeyIndex を使わない ↓↓↓
+    const relativeIndex = noteIndex // Cは常に0, C#は常に1...
+    const isDiatonic = [0, 2, 4, 5, 7, 9, 11].includes(relativeIndex)
+
+    if (isDiatonic) {
+      return degreeMap[relativeIndex] // CはI, DはII...
+    }
+    return ''
+  }
+})
+
+// === 10. ガイドラインデータ ===
+const NUM_SEMITONES_TO_DRAW = keys.length
+
+const guideLines = computed(() => {
+  const lines = []
+  for (let i = 0; i < NUM_SEMITONES_TO_DRAW; i++) {
+    lines.push({
+      index: i,
+      left: i * SEMITONE_WIDTH,
+      note: transposeNote('C3', i), // C3基準
+    })
+  }
+  return lines
+})
+
+const highlightedLines = computed(() => {
+  const highlighted = new Set()
+  const fixedKeyboardPressedNotes = new Set()
+  if (isTopKeyboardFixed.value) {
+    if (isAbsoluteOnTop.value) {
+      for (const note of pressedKeys.value) fixedKeyboardPressedNotes.add(note)
+    } else {
+      for (const note of pressedKeys.value)
+        fixedKeyboardPressedNotes.add(transposeNote(note, -currentKeyIndex.value))
+    }
+  } else {
+    if (!isAbsoluteOnTop.value) {
+      for (const note of pressedKeys.value) fixedKeyboardPressedNotes.add(note)
+    } else {
+      for (const note of pressedKeys.value)
+        fixedKeyboardPressedNotes.add(transposeNote(note, -currentKeyIndex.value))
+    }
+  }
+  for (const pressedNote of fixedKeyboardPressedNotes) {
+    const noteName = pressedNote.slice(0, -1)
+    const octave = parseInt(pressedNote.slice(-1))
+    const semitoneOffsetFromC = noteNameMap.indexOf(noteName)
+    if (semitoneOffsetFromC !== -1) {
+      const globalSemitoneIndex = (octave - 3) * 12 + semitoneOffsetFromC
+      highlighted.add(globalSemitoneIndex)
+    }
+  }
+  return highlighted
+})
+
+// === 11. 横画面専用トランスフォーム ===
+// --- 横画面専用のトランスフォーム計算 ---
+const landscapeTransform = computed(() => {
+  // 1. スワイプ量は常に追加
+  let totalOffset = totalSwipeOffset.value
+
+  // 2. キー切り替えのスライド量 (slideOffset) は削除！
+  // totalOffset -= slideOffset.value // ← この行を削除！
+
+  // ↓↓↓ ここを修正！ ↓↓↓
+  // Y軸の中央揃えも一緒に出力する
+  return `translateX(${totalOffset}px) translateY(-50%)`
+})
 </script>
 
 <template>
@@ -467,9 +444,11 @@ const getLandscapeRelativeLabel = (key) => {
   flex-direction: column;
   height: 100dvh; /* 画面の高さピッタリ */
   background-color: #222;
+  /* ユーザーがテキスト選択できないようにする */
+  user-select: none;
+  -webkit-user-select: none;
 }
 .settings {
-  /* 設定ボタンのラッパー */
   background-color: #111;
   padding: 4px;
   display: flex;
@@ -506,12 +485,12 @@ const getLandscapeRelativeLabel = (key) => {
 }
 .portrait-view .piano-top {
   top: 50%;
-  margin-top: -220px;
+  margin-top: -215px; /* (210px*2 + 10px) / 2 = 215px */
   z-index: 10;
 }
 .portrait-view .piano-bottom {
   top: 50%;
-  margin-top: 10px;
+  margin-top: 5px; /* -215px + 210px (top鍵盤) + 10px (隙間) */
   z-index: 10;
 }
 .portrait-view .guide-lines-container {
@@ -521,7 +500,7 @@ const getLandscapeRelativeLabel = (key) => {
   z-index: 5;
   top: 50%;
   height: 430px;
-  margin-top: -220px;
+  margin-top: -215px; /* piano-top と同じ値 */
   overflow: hidden;
 }
 .portrait-view .semitone-band {
@@ -534,7 +513,7 @@ const getLandscapeRelativeLabel = (key) => {
   transition: background-color 0.1s ease-out;
 }
 .portrait-view .semitone-band.is-highlighted {
-  background-color: rgba(255, 255, 255, 0.4); /* 白に (君が変更した) */
+  background-color: rgba(255, 255, 255, 0.4); /* 白 */
 }
 
 /* --- 2. 横画面 (ランドスケープ) のスタイル --- */
@@ -552,10 +531,9 @@ const getLandscapeRelativeLabel = (key) => {
     overflow: hidden;
     display: block;
     position: relative;
-    /* 横画面ではガイドラインを非表示（必要なら後で追加） */
   }
   .landscape-view .piano {
-    top: 50%; /* 画面の上下中央に配置 */
+    top: 50%;
     transform: translateY(-50%);
   }
 }

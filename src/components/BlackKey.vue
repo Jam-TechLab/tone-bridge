@@ -46,12 +46,15 @@ div.pressed {
   width: 100%;
 }
 .label-top {
-  font-size: 0.8rem;
-  opacity: 0.7;
-  margin-bottom: 1px;
+  font-size: 1rem;
+  font-weight: normal; /* 変更: 太字をやめる */
+  opacity: 0.8;
+  margin-bottom: 2px;
 }
 .label-bottom {
-  font-size: 0.9rem;
-  font-weight: bold;
+  font-size: 1rem;
+  font-weight: normal; /* 変更: 太字をやめる */
+  opacity: 0.8;
+  margin-bottom: 2px;
 }
 </style>
