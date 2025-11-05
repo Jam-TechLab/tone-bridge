@@ -6,7 +6,7 @@ import PianoKeyboard from './components/PianoKeyboard.vue'
 
 // --- 設定 ---
 const isAbsoluteOnTop = ref(true) // true = 絶対音が上
-const isTopKeyboardFixed = ref(false) // true = 上が固定, false = 下が固定
+const isAbsoluteKeyboardFixed = ref(true) // ← 名前を変更！ (初期値: 絶対音が固定)
 
 // === 1. キー選択ロジック ===
 const allKeys = [
@@ -116,31 +116,51 @@ const totalSwipeOffset = computed(() => {
   return swipeOffset.value + touchMoveOffset.value
 })
 
+// --- 最終的なトランスフォーム値を計算 ---
+
+// 上の鍵盤のトランスフォーム値
 const topKeyboardTransform = computed(() => {
-  let totalOffset = totalSwipeOffset.value
-  const isTopKeyboardMoving = !isTopKeyboardFixed.value
-  const isTopKeyboardAbsolute = isAbsoluteOnTop.value
-  if (isTopKeyboardMoving) {
-    if (isTopKeyboardAbsolute) {
+  let totalOffset = totalSwipeOffset.value // 1. スワイプ量は常に追加
+
+  // 2. 「上」にいるのは「絶対音」か？
+  if (isAbsoluteOnTop.value) {
+    // 上は「絶対音」
+    // もし「絶対音が動く」設定なら、スライド(左)
+    if (!isAbsoluteKeyboardFixed.value) {
       totalOffset += slideOffset.value
-    } else {
+    }
+  } else {
+    // 上は「相対音」
+    // もし「相対音が動く」設定なら、スライド(右)
+    if (isAbsoluteKeyboardFixed.value) {
+      // (絶対音が固定 = 相対音が動く)
       totalOffset -= slideOffset.value
     }
   }
+
   return `translateX(${totalOffset}px)`
 })
 
+// 下の鍵盤のトランスフォーム値
 const bottomKeyboardTransform = computed(() => {
-  let totalOffset = totalSwipeOffset.value
-  const isBottomKeyboardMoving = isTopKeyboardFixed.value
-  const isBottomKeyboardAbsolute = !isAbsoluteOnTop.value
-  if (isBottomKeyboardMoving) {
-    if (isBottomKeyboardAbsolute) {
+  let totalOffset = totalSwipeOffset.value // 1. スワイプ量は常に追加
+
+  // 2. 「下」にいるのは「絶対音」か？
+  if (!isAbsoluteOnTop.value) {
+    // 下は「絶対音」
+    // もし「絶対音が動く」設定なら、スライド(左)
+    if (!isAbsoluteKeyboardFixed.value) {
       totalOffset += slideOffset.value
-    } else {
+    }
+  } else {
+    // 下は「相対音」
+    // もし「相対音が動く」設定なら、スライド(右)
+    if (isAbsoluteKeyboardFixed.value) {
+      // (絶対音が固定 = 相対音が動く)
       totalOffset -= slideOffset.value
     }
   }
+
   return `translateX(${totalOffset}px)`
 })
 
@@ -281,31 +301,56 @@ const guideLines = computed(() => {
   return lines
 })
 
+// ハイライトされるべきラインのSet (computedでリアルタイム更新)
 const highlightedLines = computed(() => {
   const highlighted = new Set()
   const fixedKeyboardPressedNotes = new Set()
-  if (isTopKeyboardFixed.value) {
+
+  // 1. 固定鍵盤が押している「絶対音」のリストを作る
+  if (isAbsoluteKeyboardFixed.value) {
+    // ← 修正点 1
+    // 絶対音が固定の場合
     if (isAbsoluteOnTop.value) {
+      // 上が絶対音
       for (const note of pressedKeys.value) fixedKeyboardPressedNotes.add(note)
     } else {
-      for (const note of pressedKeys.value)
-        fixedKeyboardPressedNotes.add(transposeNote(note, -currentKeyIndex.value))
+      // 下が絶対音
+      for (const note of pressedKeys.value) fixedKeyboardPressedNotes.add(note)
     }
   } else {
+    // 相対音が固定の場合
     if (!isAbsoluteOnTop.value) {
-      for (const note of pressedKeys.value) fixedKeyboardPressedNotes.add(note)
+      // 上が相対音
+      for (const note of pressedKeys.value)
+        fixedKeyboardPressedNotes.add(transposeNote(note, -currentKeyIndex.value))
     } else {
+      // 下が相対音
       for (const note of pressedKeys.value)
         fixedKeyboardPressedNotes.add(transposeNote(note, -currentKeyIndex.value))
     }
   }
+
+  // 2. 押された絶対音を「光らせるべき帯のインデックス」に変換する
   for (const pressedNote of fixedKeyboardPressedNotes) {
     const noteName = pressedNote.slice(0, -1)
     const octave = parseInt(pressedNote.slice(-1))
     const semitoneOffsetFromC = noteNameMap.indexOf(noteName)
+
     if (semitoneOffsetFromC !== -1) {
       const globalSemitoneIndex = (octave - 3) * 12 + semitoneOffsetFromC
-      highlighted.add(globalSemitoneIndex)
+
+      // グリッドは固定されている。
+      // 「絶対音鍵盤」が動く設定かどうかをチェック
+      const isAbsoluteMoving = !isAbsoluteKeyboardFixed.value // ← 修正点 2 (ロジックをシンプルに)
+
+      if (isAbsoluteMoving) {
+        // もし「絶対音鍵盤が動く」設定なら...
+        const highlightedIndex = globalSemitoneIndex - currentKeyIndex.value
+        highlighted.add(highlightedIndex)
+      } else {
+        // もし「絶対音鍵盤が固定」なら...
+        highlighted.add(globalSemitoneIndex)
+      }
     }
   }
   return highlighted
@@ -331,11 +376,11 @@ const landscapeTransform = computed(() => {
     <KeySelector :current-key="currentKey" @change-key="handleChangeKey" />
 
     <div class="settings">
-      <button @click="isAbsoluteOnTop = !isAbsoluteOnTop">
-        Swap Top ({{ isAbsoluteOnTop ? 'Abs' : 'Rel' }})
-      </button>
-      <button @click="isTopKeyboardFixed = !isTopKeyboardFixed">
+      <!-- <button @click="isTopKeyboardFixed = !isTopKeyboardFixed">
         Swap Fixed ({{ isTopKeyboardFixed ? 'Top' : 'Bottom' }})
+      </button> -->
+      <button @click="isAbsoluteKeyboardFixed = !isAbsoluteKeyboardFixed">
+        動作 ({{ isAbsoluteKeyboardFixed ? 'Relが動く' : 'Absが動く' }})
       </button>
     </div>
 
@@ -345,9 +390,19 @@ const landscapeTransform = computed(() => {
       @touchmove.prevent="handleWrapperTouchMove"
       @touchend.prevent="handleWrapperTouchEnd"
     >
+      <button
+        class="swap-button"
+        @click="isAbsoluteOnTop = !isAbsoluteOnTop"
+        @touchstart.stop
+        @touchmove.stop
+        @touchend.stop
+      >
+        ⇅
+      </button>
       <div
         class="guide-lines-container"
-        :style="{ transform: `translateX(${totalSwipeOffset}px)` }"
+        :style="{ transform: isAbsoluteOnTop ? topKeyboardTransform : bottomKeyboardTransform }"
+        :class="{ 'is-swiping': swipeMode }"
       >
         <div
           v-for="line in guideLines"
@@ -360,7 +415,7 @@ const landscapeTransform = computed(() => {
 
       <div
         class="piano piano-top"
-        :class="{ 'is-swiping': swipeMode }"
+        :class="{ 'is-swiping': swipeMode && !isAbsoluteKeyboardFixed }"
         :style="{ transform: topKeyboardTransform }"
       >
         <PianoKeyboard
@@ -384,7 +439,7 @@ const landscapeTransform = computed(() => {
 
       <div
         class="piano piano-bottom"
-        :class="{ 'is-swiping': swipeMode }"
+        :class="{ 'is-swiping': swipeMode && isAbsoluteKeyboardFixed }"
         :style="{ transform: bottomKeyboardTransform }"
       >
         <PianoKeyboard
@@ -448,17 +503,7 @@ const landscapeTransform = computed(() => {
   user-select: none;
   -webkit-user-select: none;
 }
-.settings {
-  background-color: #111;
-  padding: 4px;
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-}
-.settings button {
-  font-size: 0.8rem;
-  padding: 4px 8px;
-}
+
 .piano {
   display: block;
   position: absolute;
@@ -483,26 +528,79 @@ const landscapeTransform = computed(() => {
   display: block;
   position: relative;
 }
+/* --- 1. 縦画面 (ポートレート) のスタイル --- */
+.landscape-view {
+  display: none;
+}
+.portrait-view .keyboard-wrapper {
+  flex-grow: 1;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  display: block;
+  position: relative;
+}
+
+.portrait-view .swap-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background-color: #42b883;
+  color: white; /* ← 色を白に変更！ */
+  font-size: 1.5rem;
+  line-height: 44px;
+  text-align: center;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.portrait-view .swap-button:active {
+  background-color: #38a070;
+}
+
+/* ↓ 新しいマージン計算 (隙間64px) */
 .portrait-view .piano-top {
   top: 50%;
-  margin-top: -215px; /* (210px*2 + 10px) / 2 = 215px */
+  margin-top: -242px; /* -(210 + 64/2) = -242px */
   z-index: 10;
 }
+/* ↓ 新しいマージン計算 (隙間64px) */
 .portrait-view .piano-bottom {
   top: 50%;
-  margin-top: 5px; /* -215px + 210px (top鍵盤) + 10px (隙間) */
+  margin-top: 32px; /* +(64/2) = 32px */
   z-index: 10;
 }
+
+/* ↓↓↓ このブロックを丸ごと置き換えて！ ↓↓↓ */
 .portrait-view .guide-lines-container {
   position: absolute;
   left: 0;
   width: 1102.5px;
-  z-index: 5;
-  top: 50%;
-  height: 430px;
-  margin-top: -215px; /* piano-top と同じ値 */
+  z-index: 5; /* ピアノ(10)より奥 */
+
+  /* ↓ 修正点！ wrapper全体に広げる */
+  top: 0;
+  bottom: 0;
+  height: 100%;
+  margin-top: 0;
+
   overflow: hidden;
+  transition: transform 0.3s ease-out;
 }
+
+.portrait-view .guide-lines-container.is-swiping {
+  transition: none;
+}
+/* ↑↑↑ ここまで置き換え ↑↑↑ */
+
+/* ... (semitone-band 以下のスタイルは変更なし) ... */
 .portrait-view .semitone-band {
   position: absolute;
   top: 0;
