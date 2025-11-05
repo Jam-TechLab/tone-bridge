@@ -306,10 +306,9 @@ const highlightedLines = computed(() => {
   const highlighted = new Set()
   const fixedKeyboardPressedNotes = new Set()
 
-  // 1. 固定鍵盤が押している「絶対音」のリストを作る
+  // 1. 固定鍵盤が押している「絶対音」のリストを作る (ここは変更なし)
   if (isAbsoluteKeyboardFixed.value) {
-    // ← 修正点 1
-    // 絶対音が固定の場合
+    // --- 絶対音が固定 ---
     if (isAbsoluteOnTop.value) {
       // 上が絶対音
       for (const note of pressedKeys.value) fixedKeyboardPressedNotes.add(note)
@@ -318,7 +317,7 @@ const highlightedLines = computed(() => {
       for (const note of pressedKeys.value) fixedKeyboardPressedNotes.add(note)
     }
   } else {
-    // 相対音が固定の場合
+    // --- 相対音が固定 ---
     if (!isAbsoluteOnTop.value) {
       // 上が相対音
       for (const note of pressedKeys.value)
@@ -337,19 +336,23 @@ const highlightedLines = computed(() => {
     const semitoneOffsetFromC = noteNameMap.indexOf(noteName)
 
     if (semitoneOffsetFromC !== -1) {
+      // 押された音の「物理的なインデックス」 (C3 = 0)
       const globalSemitoneIndex = (octave - 3) * 12 + semitoneOffsetFromC
 
-      // グリッドは固定されている。
-      // 「絶対音鍵盤」が動く設定かどうかをチェック
-      const isAbsoluteMoving = !isAbsoluteKeyboardFixed.value // ← 修正点 2 (ロジックをシンプルに)
+      // ↓↓↓ ここが「3度目の正直」の修正点！ ↓↓↓
 
-      if (isAbsoluteMoving) {
-        // もし「絶対音鍵盤が動く」設定なら...
-        const highlightedIndex = globalSemitoneIndex - currentKeyIndex.value
-        highlighted.add(highlightedIndex)
-      } else {
-        // もし「絶対音鍵盤が固定」なら...
+      if (isAbsoluteKeyboardFixed.value) {
+        // --- Case 1: 絶対音が固定 ---
+        // グリッドも固定されている。
+        // 押された音の物理インデックスを、そのまま光らせる。
         highlighted.add(globalSemitoneIndex)
+      } else {
+        // --- Case 2: 相対音が固定 ---
+        // グリッドは「絶対音」と一緒に動いている。
+        // 押された音(C4=12)の真下にあるべきグリッドは、
+        // グリッドの移動量(keyIndex)を足した場所(12 + keyIndex)にある。
+        const highlightedIndex = globalSemitoneIndex + currentKeyIndex.value
+        highlighted.add(highlightedIndex)
       }
     }
   }
@@ -415,7 +418,7 @@ const landscapeTransform = computed(() => {
 
       <div
         class="piano piano-top"
-        :class="{ 'is-swiping': swipeMode && !isAbsoluteKeyboardFixed }"
+        :class="{ 'is-swiping': swipeMode }"
         :style="{ transform: topKeyboardTransform }"
       >
         <PianoKeyboard
@@ -439,7 +442,7 @@ const landscapeTransform = computed(() => {
 
       <div
         class="piano piano-bottom"
-        :class="{ 'is-swiping': swipeMode && isAbsoluteKeyboardFixed }"
+        :class="{ 'is-swiping': swipeMode }"
         :style="{ transform: bottomKeyboardTransform }"
       >
         <PianoKeyboard
