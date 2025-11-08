@@ -34,48 +34,45 @@ const handleChangeKey = (direction) => {
   }
 }
 
-// === 2. 鍵盤データ ===
-const keys = [
-  // Octave 3
-  { note: 'C3', type: 'white', left: 0 },
-  { note: 'C#3', type: 'black', left: 36.75 },
-  { note: 'D3', type: 'white', left: 52.5 },
-  { note: 'D#3', type: 'black', left: 89.25 },
-  { note: 'E3', type: 'white', left: 105 },
-  { note: 'F3', type: 'white', left: 157.5 },
-  { note: 'F#3', type: 'black', left: 194.25 },
-  { note: 'G3', type: 'white', left: 210 },
-  { note: 'G#3', type: 'black', left: 246.75 },
-  { note: 'A3', type: 'white', left: 262.5 },
-  { note: 'A#3', type: 'black', left: 299.25 },
-  { note: 'B3', type: 'white', left: 315 },
-  // Octave 4
-  { note: 'C4', type: 'white', left: 367.5 },
-  { note: 'C#4', type: 'black', left: 404.25 },
-  { note: 'D4', type: 'white', left: 420 },
-  { note: 'D#4', type: 'black', left: 456.75 },
-  { note: 'E4', type: 'white', left: 472.5 },
-  { note: 'F4', type: 'white', left: 525 },
-  { note: 'F#4', type: 'black', left: 561.75 },
-  { note: 'G4', type: 'white', left: 577.5 },
-  { note: 'G#4', type: 'black', left: 614.25 },
-  { note: 'A4', type: 'white', left: 630 },
-  { note: 'A#4', type: 'black', left: 666.75 },
-  { note: 'B4', type: 'white', left: 682.5 },
-  // Octave 5
-  { note: 'C5', type: 'white', left: 735 },
-  { note: 'C#5', type: 'black', left: 771.75 },
-  { note: 'D5', type: 'white', left: 787.5 },
-  { note: 'D#5', type: 'black', left: 824.25 },
-  { note: 'E5', type: 'white', left: 840 },
-  { note: 'F5', type: 'white', left: 892.5 },
-  { note: 'F#5', type: 'black', left: 929.25 },
-  { note: 'G5', type: 'white', left: 945 },
-  { note: 'G#5', type: 'black', left: 981.75 },
-  { note: 'A5', type: 'white', left: 997.5 },
-  { note: 'A#5', type: 'black', left: 1034.25 },
-  { note: 'B5', type: 'white', left: 1050 },
+// === 2. 鍵盤データ (自動生成 C0〜B8) ===
+const WHITE_KEY_WIDTH = 52.5
+const OCTAVE_WIDTH = WHITE_KEY_WIDTH * 7 // 1オクターブの幅 (367.5px)
+// ↓↓↓ この行を追加！ ↓↓↓
+const SEMITONE_WIDTH = OCTAVE_WIDTH / 12 // 1半音あたりのピクセル幅 (30.625px)
+
+// C基準の1オクターブのレイアウトテンプレート
+const oneOctaveTemplate = [
+  { note: 'C', type: 'white', left: 0 },
+  { note: 'C#', type: 'black', left: 36.75 },
+  { note: 'D', type: 'white', left: 52.5 },
+  { note: 'D#', type: 'black', left: 89.25 },
+  { note: 'E', type: 'white', left: 105 },
+  { note: 'F', type: 'white', left: 157.5 },
+  { note: 'F#', type: 'black', left: 194.25 },
+  { note: 'G', type: 'white', left: 210 },
+  { note: 'G#', type: 'black', left: 246.75 },
+  { note: 'A', type: 'white', left: 262.5 },
+  { note: 'A#', type: 'black', left: 299.25 },
+  { note: 'B', type: 'white', left: 315 },
 ]
+
+// C0〜B8 (9オクターブ・108キー) を自動生成する関数
+const generateKeys = () => {
+  const newKeys = []
+  for (let octave = 0; octave <= 8; octave++) {
+    for (const keyTemplate of oneOctaveTemplate) {
+      newKeys.push({
+        ...keyTemplate,
+        note: keyTemplate.note + octave, // "C" + 0 -> "C0"
+        left: keyTemplate.left + octave * OCTAVE_WIDTH,
+      })
+    }
+  }
+  return newKeys
+}
+
+const keys = generateKeys()
+const TOTAL_PIANO_WIDTH = OCTAVE_WIDTH * 9 // 9オクターブ分の幅
 
 // === 3. サウンドエンジン ===
 const { playNote, stopNote } = useAudio()
@@ -96,9 +93,6 @@ const relativeKeyData = computed(() => {
 })
 
 // === 5. スライドロジック ===
-const WHITE_KEY_WIDTH = 52.5
-const OCTAVE_WIDTH = WHITE_KEY_WIDTH * 7
-const SEMITONE_WIDTH = OCTAVE_WIDTH / 12
 
 const slideOffset = computed(() => {
   const semitoneIndex = currentKeyIndex.value
@@ -106,8 +100,9 @@ const slideOffset = computed(() => {
 })
 
 // === 6. スワイプロジック ===
+// C4の新しい left 座標 (367.5 * 4 = 1470) を正しく取得
 const baseC4Left = keys.filter((key) => key.note === 'C4')[0].left
-const swipeOffset = ref(-baseC4Left)
+const swipeOffset = ref(-baseC4Left) // 初期位置をC4に
 const touchStartX = ref(0)
 const touchMoveOffset = ref(0)
 const swipeMode = ref(false)
@@ -287,15 +282,15 @@ const getLandscapeRelativeLabel = computed(() => {
 })
 
 // === 10. ガイドラインデータ ===
-const NUM_SEMITONES_TO_DRAW = keys.length
-
+// === ガイドラインデータ ===
+const NUM_SEMITONES_TO_DRAW = keys.length // 108キー
 const guideLines = computed(() => {
   const lines = []
   for (let i = 0; i < NUM_SEMITONES_TO_DRAW; i++) {
     lines.push({
       index: i,
       left: i * SEMITONE_WIDTH,
-      note: transposeNote('C3', i), // C3基準
+      note: transposeNote('C0', i), // ← C3からC0基準に変更！
     })
   }
   return lines
@@ -337,7 +332,7 @@ const highlightedLines = computed(() => {
 
     if (semitoneOffsetFromC !== -1) {
       // 押された音の「物理的なインデックス」 (C3 = 0)
-      const globalSemitoneIndex = (octave - 3) * 12 + semitoneOffsetFromC
+      const globalSemitoneIndex = (octave - 0) * 12 + semitoneOffsetFromC
 
       // ↓↓↓ ここが「3度目の正直」の修正点！ ↓↓↓
 
@@ -376,16 +371,11 @@ const landscapeTransform = computed(() => {
 
 <template>
   <div class="view portrait-view">
-    <KeySelector :current-key="currentKey" @change-key="handleChangeKey" />
-
-    <div class="settings">
-      <!-- <button @click="isTopKeyboardFixed = !isTopKeyboardFixed">
-        Swap Fixed ({{ isTopKeyboardFixed ? 'Top' : 'Bottom' }})
-      </button> -->
-      <button @click="isAbsoluteKeyboardFixed = !isAbsoluteKeyboardFixed">
-        動作 ({{ isAbsoluteKeyboardFixed ? 'Relが動く' : 'Absが動く' }})
-      </button>
-    </div>
+    <KeySelector
+      :current-key="currentKey"
+      @change-key="handleChangeKey"
+      @toggle-fixed="isAbsoluteKeyboardFixed = !isAbsoluteKeyboardFixed"
+    />
 
     <div
       class="keyboard-wrapper"
@@ -405,7 +395,7 @@ const landscapeTransform = computed(() => {
       <div
         class="guide-lines-container"
         :style="{ transform: isAbsoluteOnTop ? topKeyboardTransform : bottomKeyboardTransform }"
-        :class="{ 'is-swiping': swipeMode }"
+        :class="{ 'is-swiping': swipeMode, width: TOTAL_PIANO_WIDTH + 'px' /* ← 追加！ */ }"
       >
         <div
           v-for="line in guideLines"
@@ -419,7 +409,7 @@ const landscapeTransform = computed(() => {
       <div
         class="piano piano-top"
         :class="{ 'is-swiping': swipeMode }"
-        :style="{ transform: topKeyboardTransform }"
+        :style="{ transform: topKeyboardTransform, width: TOTAL_PIANO_WIDTH + 'px' /* ← 追加！ */ }"
       >
         <PianoKeyboard
           v-if="isAbsoluteOnTop"
@@ -443,7 +433,10 @@ const landscapeTransform = computed(() => {
       <div
         class="piano piano-bottom"
         :class="{ 'is-swiping': swipeMode }"
-        :style="{ transform: bottomKeyboardTransform }"
+        :style="{
+          transform: bottomKeyboardTransform,
+          width: TOTAL_PIANO_WIDTH + 'px' /* ← 追加！ */,
+        }"
       >
         <PianoKeyboard
           v-if="!isAbsoluteOnTop"
@@ -478,7 +471,7 @@ const landscapeTransform = computed(() => {
       <div
         class="piano"
         :class="{ 'is-swiping': swipeMode }"
-        :style="{ transform: landscapeTransform }"
+        :style="{ transform: landscapeTransform, width: TOTAL_PIANO_WIDTH + 'px' /* ← 追加！ */ }"
       >
         <PianoKeyboard
           :keys="keys"
@@ -510,7 +503,7 @@ const landscapeTransform = computed(() => {
 .piano {
   display: block;
   position: absolute;
-  width: 1102.5px;
+  /* width: 1102.5px; */ /* ← この行を削除！ */
   height: 210px;
   left: 0;
   transition: transform 0.3s ease-out;
@@ -568,32 +561,24 @@ const landscapeTransform = computed(() => {
   background-color: #38a070;
 }
 
-/* ↓ 新しいマージン計算 (隙間64px) */
 .portrait-view .piano-top {
   top: 50%;
-  margin-top: -242px; /* -(210 + 64/2) = -242px */
+  margin-top: -242px; /* -(210px + 64px/2) = -242px */
   z-index: 10;
 }
-/* ↓ 新しいマージン計算 (隙間64px) */
 .portrait-view .piano-bottom {
   top: 50%;
-  margin-top: 32px; /* +(64/2) = 32px */
+  margin-top: 32px; /* +(64px/2) = 32px */
   z-index: 10;
 }
-
-/* ↓↓↓ このブロックを丸ごと置き換えて！ ↓↓↓ */
 .portrait-view .guide-lines-container {
   position: absolute;
   left: 0;
-  width: 1102.5px;
-  z-index: 5; /* ピアノ(10)より奥 */
-
-  /* ↓ 修正点！ wrapper全体に広げる */
-  top: 0;
-  bottom: 0;
-  height: 100%;
-  margin-top: 0;
-
+  width: 3307.5px;
+  z-index: 5;
+  top: 50%;
+  height: 484px; /* 210px*2 + 64px隙間 */
+  margin-top: -242px; /* piano-topと同じ */
   overflow: hidden;
   transition: transform 0.3s ease-out;
 }
