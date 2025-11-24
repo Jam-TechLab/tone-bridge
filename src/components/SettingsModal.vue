@@ -1,12 +1,15 @@
 <script setup>
 defineProps({
-  // 親から受け取る設定値
-  // isViewFollowingRelative: trueなら「相対音」が固定（絶対音が動く）
-  // falseなら「絶対音」が固定（相対音が動く）
   isViewFollowingRelative: Boolean,
+  isLandscapeRelative: Boolean, // ← 名前変更
+  isDeviceLandscape: Boolean,
 })
 
-const emit = defineEmits(['update:isViewFollowingRelative', 'close'])
+const emit = defineEmits([
+  'update:isViewFollowingRelative',
+  'update:isLandscapeRelative', // ← 名前変更
+  'close',
+])
 </script>
 
 <template>
@@ -18,20 +21,21 @@ const emit = defineEmits(['update:isViewFollowingRelative', 'close'])
       </div>
 
       <div class="modal-body">
-        <div class="setting-item">
+        <div v-if="!isDeviceLandscape" class="setting-item"></div>
+
+        <div v-if="isDeviceLandscape" class="setting-item">
           <div class="setting-label">
-            <span class="setting-title">画面を相対キーボードと一緒に動かす</span>
+            <span class="setting-title">相対音キーボードにする</span>
             <span class="setting-desc">
-              ONにすると、相対キーボードが固定され、 <br />
-              絶対キーボードが動きます。
+              ON: キーに合わせて音が移調されます(移動ド)<br />
+              OFF: 鍵盤の音は固定されます(固定ド)
             </span>
           </div>
-
           <label class="toggle-switch">
             <input
               type="checkbox"
-              :checked="isViewFollowingRelative"
-              @change="emit('update:isViewFollowingRelative', $event.target.checked)"
+              :checked="isLandscapeRelative"
+              @change="emit('update:isLandscapeRelative', $event.target.checked)"
             />
             <span class="slider"></span>
           </label>
@@ -42,20 +46,20 @@ const emit = defineEmits(['update:isViewFollowingRelative', 'close'])
 </template>
 
 <style scoped>
+/* ... (スタイルは変更なし。そのままコピペでOK) ... */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.7); /* 背景を暗く */
+  background-color: rgba(0, 0, 0, 0.7);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 100; /* 最前面 */
+  z-index: 1000; /* z-indexを爆上げして確実に前に出す */
   backdrop-filter: blur(2px);
 }
-
 .modal-content {
   background-color: #222;
   color: white;
@@ -66,7 +70,6 @@ const emit = defineEmits(['update:isViewFollowingRelative', 'close'])
   border: 1px solid #444;
   overflow: hidden;
 }
-
 .modal-header {
   padding: 16px;
   background-color: #333;
@@ -86,11 +89,9 @@ const emit = defineEmits(['update:isViewFollowingRelative', 'close'])
   cursor: pointer;
   padding: 0 8px;
 }
-
 .modal-body {
   padding: 20px;
 }
-
 .setting-item {
   display: flex;
   justify-content: space-between;
@@ -98,7 +99,10 @@ const emit = defineEmits(['update:isViewFollowingRelative', 'close'])
   padding-bottom: 16px;
   border-bottom: 1px solid #333;
 }
-
+.setting-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
 .setting-label {
   display: flex;
   flex-direction: column;
@@ -112,8 +116,6 @@ const emit = defineEmits(['update:isViewFollowingRelative', 'close'])
   font-size: 0.8rem;
   color: #aaa;
 }
-
-/* トグルスイッチのデザイン */
 .toggle-switch {
   position: relative;
   display: inline-block;
@@ -149,7 +151,7 @@ const emit = defineEmits(['update:isViewFollowingRelative', 'close'])
   border-radius: 50%;
 }
 input:checked + .slider {
-  background-color: #42b883; /* ONの色 */
+  background-color: #42b883;
 }
 input:checked + .slider:before {
   transform: translateX(22px);

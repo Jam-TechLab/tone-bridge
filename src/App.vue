@@ -1,29 +1,47 @@
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue'
-import { useAudio, transposeNote } from './useAudio.js'
-import KeySelector from './components/KeySelector.vue'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue' // onUnmountedを追加
 import PianoKeyboard from './components/PianoKeyboard.vue'
-import SettingsModal from './components/SettingsModal.vue' // ← 追加！
+import KeySelector from './components/KeySelector.vue'
+import SettingsModal from './components/SettingsModal.vue'
+import { useAudio, transposeNote } from './useAudio.js'
 
-// --- 設定 ---
+// ... (設定変数のあたり) ...
 const isAbsoluteOnTop = ref(true)
 const isAbsoluteKeyboardFixed = ref(true)
-const showSettings = ref(false) // ← 設定画面の表示フラグ
+const isLandscapeRelative = ref(true) // ← 名前変更 & デフォルトON (相対)！
+const showSettings = ref(false)
+
+// ↓↓↓ 画面の向きを検知する変数 ↓↓↓
+const isDeviceLandscape = ref(false) // デバイスが横向きか？
+
+// 向きをチェックする関数
+const checkOrientation = () => {
+  isDeviceLandscape.value = window.matchMedia('(orientation: landscape)').matches
+}
 
 // --- 設定の保存・読み込み ---
-// 1. アプリ起動時に読み込む
 onMounted(() => {
   const savedFixed = localStorage.getItem('tonebridge-fixed-mode')
-  if (savedFixed !== null) {
-    // 保存された値があれば復元 (savedFixedは文字列なので比較でBooleanにする)
-    isAbsoluteKeyboardFixed.value = savedFixed === 'true'
-  }
+  if (savedFixed !== null) isAbsoluteKeyboardFixed.value = savedFixed === 'true'
+
+  // ↓ 追加！
+  const savedLandscape = localStorage.getItem('tonebridge-landscape-mode')
+  // 保存値がなければ true (デフォルト相対)
+  if (savedLandscape !== null) isLandscapeRelative.value = savedLandscape === 'true'
+  else isLandscapeRelative.value = true
+
+  // 向きの監視を開始
+  checkOrientation()
+  window.addEventListener('resize', checkOrientation)
 })
 
-// 2. 値が変わったら保存する
-watch(isAbsoluteKeyboardFixed, (newValue) => {
-  localStorage.setItem('tonebridge-fixed-mode', newValue)
+onUnmounted(() => {
+  window.removeEventListener('resize', checkOrientation)
 })
+
+watch(isAbsoluteKeyboardFixed, (val) => localStorage.setItem('tonebridge-fixed-mode', val))
+// ↓ 追加！
+watch(isLandscapeRelative, (val) => localStorage.setItem('tonebridge-landscape-mode', val))
 
 // === 1. キー選択ロジック ===
 const allKeys = [
@@ -264,13 +282,26 @@ const getRelativeLabel = (key) => {
 // --- 横画面用 ---
 // ↓↓↓ 2つの関数を「computed」に格上げ！ ↓↓↓
 
+// 絶対音ラベル（特殊ルール適用）
 const getLandscapeAbsoluteLabel = computed(() => {
   return (key) => {
-    // 関数を返す
-    const transposedNote = transposeNote(key.note, currentKeyIndex.value)
-    const noteName = transposedNote.slice(0, -1)
-    if (noteName.length === 1) {
-      // ♯♭なし
+    let noteName
+
+    if (isLandscapeRelative.value) {
+      // 相対モード (ON):
+      // 鍵盤自体が移調されている（音が変わる）ので、
+      // ラベルもそれに合わせて「移調後の音名」を表示する。
+      const transposedNote = transposeNote(key.note, currentKeyIndex.value)
+      noteName = transposedNote.slice(0, -1)
+    } else {
+      // 絶対モード (OFF):
+      // 鍵盤は固定されている（CはCのまま）。
+      // だから、ラベルも「元の鍵盤の音名」をそのまま表示する（動かさない）。
+      noteName = key.note.slice(0, -1)
+    }
+
+    // ♯♭が付かない音名 ['C', 'D', 'E', 'F', 'G', 'A', 'B'] だけラベルを返す
+    if (noteName.length === 1 && noteName >= 'A' && noteName <= 'G') {
       return noteName
     }
     return ''
@@ -280,19 +311,27 @@ const getLandscapeAbsoluteLabel = computed(() => {
 // 相対音ラベル（特殊ルール適用）
 const getLandscapeRelativeLabel = computed(() => {
   return (key) => {
-    // 関数を返す
-    // ↓↓↓ 修正点！ 移調（transpose）するのをやめる ↓↓↓
-    const noteName = key.note.slice(0, -1) // 'C3' -> 'C'
-    const noteIndex = noteNameMap.indexOf(noteName) // 'C' -> 0
+    const noteName = key.note.slice(0, -1)
+    const noteIndex = noteNameMap.indexOf(noteName)
+    if (noteIndex === -1) return ''
 
-    if (noteIndex === -1) return '' // 念のため
+    let relativeIndex
 
-    // ↓↓↓ 修正点！ currentKeyIndex を使わない ↓↓↓
-    const relativeIndex = noteIndex // Cは常に0, C#は常に1...
+    if (isLandscapeRelative.value) {
+      // 相対モード: 鍵盤は移調されている。
+      // Cの鍵盤には常に I を表示したい。
+      // つまり、鍵盤の音名(C)がそのまま相対音(I)に対応する。
+      relativeIndex = noteIndex
+    } else {
+      // 絶対モード: 鍵盤は固定(C, D...)。
+      // キーがG(7)の時、Gの鍵盤(7)を I にしたい。
+      // つまり、(鍵盤の音 - キー) が相対音になる。
+      relativeIndex = (noteIndex - currentKeyIndex.value + 12) % 12
+    }
+
     const isDiatonic = [0, 2, 4, 5, 7, 9, 11].includes(relativeIndex)
-
     if (isDiatonic) {
-      return degreeMap[relativeIndex] // CはI, DはII...
+      return degreeMap[relativeIndex]
     }
     return ''
   }
@@ -387,18 +426,23 @@ const landscapeTransform = computed(() => {
 </script>
 
 <template>
+  <SettingsModal
+    v-if="showSettings"
+    :is-device-landscape="isDeviceLandscape"
+    :is-view-following-relative="!isAbsoluteKeyboardFixed"
+    @update:is-view-following-relative="(val) => (isAbsoluteKeyboardFixed = !val)"
+    :is-landscape-settings="isLandscapeSettings"
+    @update:is-landscape-settings="(val) => (isLandscapeSettings = val)"
+    @close="showSettings = false"
+    :is-landscape-relative="isLandscapeRelative"
+    @update:is-landscape-relative="(val) => (isLandscapeRelative = val)"
+  />
+
   <div class="view portrait-view">
     <KeySelector
       :current-key="currentKey"
       @change-key="handleChangeKey"
       @toggle-fixed="showSettings = true"
-    />
-
-    <SettingsModal
-      v-if="showSettings"
-      :is-view-following-relative="!isAbsoluteKeyboardFixed"
-      @update:is-view-following-relative="(val) => (isAbsoluteKeyboardFixed = !val)"
-      @close="showSettings = false"
     />
 
     <div
@@ -416,10 +460,11 @@ const landscapeTransform = computed(() => {
       >
         ⇅
       </button>
+
       <div
         class="guide-lines-container"
         :style="{ transform: isAbsoluteOnTop ? topKeyboardTransform : bottomKeyboardTransform }"
-        :class="{ 'is-swiping': swipeMode, width: TOTAL_PIANO_WIDTH + 'px' /* ← 追加！ */ }"
+        :class="{ 'is-swiping': swipeMode, width: TOTAL_PIANO_WIDTH + 'px' }"
       >
         <div
           v-for="line in guideLines"
@@ -433,7 +478,7 @@ const landscapeTransform = computed(() => {
       <div
         class="piano piano-top"
         :class="{ 'is-swiping': swipeMode }"
-        :style="{ transform: topKeyboardTransform, width: TOTAL_PIANO_WIDTH + 'px' /* ← 追加！ */ }"
+        :style="{ transform: topKeyboardTransform, width: TOTAL_PIANO_WIDTH + 'px' }"
       >
         <PianoKeyboard
           v-if="isAbsoluteOnTop"
@@ -457,10 +502,7 @@ const landscapeTransform = computed(() => {
       <div
         class="piano piano-bottom"
         :class="{ 'is-swiping': swipeMode }"
-        :style="{
-          transform: bottomKeyboardTransform,
-          width: TOTAL_PIANO_WIDTH + 'px' /* ← 追加！ */,
-        }"
+        :style="{ transform: bottomKeyboardTransform, width: TOTAL_PIANO_WIDTH + 'px' }"
       >
         <PianoKeyboard
           v-if="!isAbsoluteOnTop"
@@ -484,7 +526,11 @@ const landscapeTransform = computed(() => {
   </div>
 
   <div class="view landscape-view">
-    <KeySelector :current-key="currentKey" @change-key="handleChangeKey" />
+    <KeySelector
+      :current-key="currentKey"
+      @change-key="handleChangeKey"
+      @toggle-fixed="showSettings = true"
+    />
 
     <div
       class="keyboard-wrapper-landscape"
@@ -495,16 +541,18 @@ const landscapeTransform = computed(() => {
       <div
         class="piano"
         :class="{ 'is-swiping': swipeMode }"
-        :style="{ transform: landscapeTransform, width: TOTAL_PIANO_WIDTH + 'px' /* ← 追加！ */ }"
+        :style="{ transform: landscapeTransform, width: TOTAL_PIANO_WIDTH + 'px' }"
       >
         <PianoKeyboard
           :keys="keys"
           :is-pressed-set="pressedKeys"
-          keyboard-type="relative"
-          :transpose-index="currentKeyIndex"
-          :get-label-top="isAbsoluteOnTop ? getLandscapeAbsoluteLabel : getLandscapeRelativeLabel"
+          :keyboard-type="isLandscapeRelative ? 'relative' : 'absolute'"
+          :transpose-index="isLandscapeRelative ? currentKeyIndex : 0"
+          :get-label-top="
+            isLandscapeRelative ? getLandscapeAbsoluteLabel : getLandscapeRelativeLabel
+          "
           :get-label-bottom="
-            isAbsoluteOnTop ? getLandscapeRelativeLabel : getLandscapeAbsoluteLabel
+            isLandscapeRelative ? getLandscapeRelativeLabel : getLandscapeAbsoluteLabel
           "
         />
       </div>
