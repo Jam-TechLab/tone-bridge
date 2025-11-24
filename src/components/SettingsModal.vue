@@ -1,15 +1,11 @@
 <script setup>
 defineProps({
   isViewFollowingRelative: Boolean,
-  isLandscapeRelative: Boolean, // ← 名前変更
+  isLandscapeRelative: Boolean,
   isDeviceLandscape: Boolean,
 })
 
-const emit = defineEmits([
-  'update:isViewFollowingRelative',
-  'update:isLandscapeRelative', // ← 名前変更
-  'close',
-])
+const emit = defineEmits(['update:isViewFollowingRelative', 'update:isLandscapeRelative', 'close'])
 </script>
 
 <template>
@@ -21,14 +17,30 @@ const emit = defineEmits([
       </div>
 
       <div class="modal-body">
-        <div v-if="!isDeviceLandscape" class="setting-item"></div>
+        <div v-if="!isDeviceLandscape" class="setting-item">
+          <div class="setting-label">
+            <span class="setting-title">画面を相対キーボードと一緒に動かす</span>
+            <span class="setting-desc">
+              ONにすると、相対キーボードが固定され、<br />
+              絶対キーボードが動きます。
+            </span>
+          </div>
+          <label class="toggle-switch">
+            <input
+              type="checkbox"
+              :checked="isViewFollowingRelative"
+              @change="emit('update:isViewFollowingRelative', $event.target.checked)"
+            />
+            <span class="slider"></span>
+          </label>
+        </div>
 
         <div v-if="isDeviceLandscape" class="setting-item">
           <div class="setting-label">
             <span class="setting-title">相対音キーボードにする</span>
             <span class="setting-desc">
               ON: キーに合わせて音が移調されます(移動ド)<br />
-              OFF: 鍵盤の音は固定されます(固定ド)
+              OFF: 鍵盤の音は固定され、ラベルが動きます(固定ド)
             </span>
           </div>
           <label class="toggle-switch">
@@ -46,7 +58,6 @@ const emit = defineEmits([
 </template>
 
 <style scoped>
-/* ... (スタイルは変更なし。そのままコピペでOK) ... */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -57,7 +68,7 @@ const emit = defineEmits([
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000; /* z-indexを爆上げして確実に前に出す */
+  z-index: 1000;
   backdrop-filter: blur(2px);
 }
 .modal-content {
