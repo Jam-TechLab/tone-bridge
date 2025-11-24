@@ -1,12 +1,29 @@
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { useAudio, transposeNote } from './useAudio.js'
 import KeySelector from './components/KeySelector.vue'
 import PianoKeyboard from './components/PianoKeyboard.vue'
+import SettingsModal from './components/SettingsModal.vue' // ← 追加！
 
 // --- 設定 ---
-const isAbsoluteOnTop = ref(true) // true = 絶対音が上
-const isAbsoluteKeyboardFixed = ref(true) // ← 名前を変更！ (初期値: 絶対音が固定)
+const isAbsoluteOnTop = ref(true)
+const isAbsoluteKeyboardFixed = ref(true)
+const showSettings = ref(false) // ← 設定画面の表示フラグ
+
+// --- 設定の保存・読み込み ---
+// 1. アプリ起動時に読み込む
+onMounted(() => {
+  const savedFixed = localStorage.getItem('tonebridge-fixed-mode')
+  if (savedFixed !== null) {
+    // 保存された値があれば復元 (savedFixedは文字列なので比較でBooleanにする)
+    isAbsoluteKeyboardFixed.value = savedFixed === 'true'
+  }
+})
+
+// 2. 値が変わったら保存する
+watch(isAbsoluteKeyboardFixed, (newValue) => {
+  localStorage.setItem('tonebridge-fixed-mode', newValue)
+})
 
 // === 1. キー選択ロジック ===
 const allKeys = [
@@ -374,7 +391,14 @@ const landscapeTransform = computed(() => {
     <KeySelector
       :current-key="currentKey"
       @change-key="handleChangeKey"
-      @toggle-fixed="isAbsoluteKeyboardFixed = !isAbsoluteKeyboardFixed"
+      @toggle-fixed="showSettings = true"
+    />
+
+    <SettingsModal
+      v-if="showSettings"
+      :is-view-following-relative="!isAbsoluteKeyboardFixed"
+      @update:is-view-following-relative="(val) => (isAbsoluteKeyboardFixed = !val)"
+      @close="showSettings = false"
     />
 
     <div
