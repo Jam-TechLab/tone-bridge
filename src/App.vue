@@ -58,14 +58,24 @@ const allKeys = [
   'A♯ / B♭',
   'B',
 ]
-const currentKeyIndex = ref(0) // 0 = C
-const currentKey = computed(() => allKeys[currentKeyIndex.value])
+// 0 = C4 を基準とした、無限のインデックス
+const currentKeyIndex = ref(0)
+
+const currentKey = computed(() => {
+  // インデックスが 12以上やマイナスになっても、0〜11 に正規化する
+  const normalizedIndex = ((currentKeyIndex.value % 12) + 12) % 12
+
+  // 文字列だけを返す (オクターブ数は付けない！)
+  return allKeys[normalizedIndex]
+})
 
 const handleChangeKey = (direction) => {
   if (direction === 'next') {
-    currentKeyIndex.value = (currentKeyIndex.value + 1) % 12
+    // ループさせず、無限に増やす
+    currentKeyIndex.value++
   } else if (direction === 'prev') {
-    currentKeyIndex.value = (currentKeyIndex.value - 1 + 12) % 12
+    // ループさせず、無限に減らす
+    currentKeyIndex.value--
   }
 }
 
@@ -129,8 +139,13 @@ const relativeKeyData = computed(() => {
 
 // === 5. スライドロジック ===
 
+// 2. キー切り替え専用のスライド量を計算
 const slideOffset = computed(() => {
+  // 無限インデックスをそのまま使う
   const semitoneIndex = currentKeyIndex.value
+
+  // 単純に (インデックス * 幅) 分だけ動かせばOK！
+  // 左(マイナス方向)に動かしたいので -1 をかける
   return semitoneIndex * SEMITONE_WIDTH * -1
 })
 
