@@ -17,7 +17,7 @@ defineProps({
 div {
   position: absolute;
   top: 0;
-  width: 52.5px;
+  /* width: 52.5px; */ /* ← この行を削除またはコメントアウト！ */
   height: 210px;
   background-color: white;
   border: 1px solid #333;

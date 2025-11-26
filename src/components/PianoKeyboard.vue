@@ -25,7 +25,7 @@ const isPressed = (note) => {
   <template v-for="key in keys" :key="key.note">
     <PianoKey
       v-if="key.type === 'white'"
-      :style="{ left: key.left + 'px' }"
+      :style="{ left: key.left + 'px', width: key.width + 'px' /* ← これを追加！ */ }"
       :data-note="key.note"
       :data-keyboard="keyboardType"
       :is-pressed="isPressed(key.note)"

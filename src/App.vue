@@ -82,42 +82,68 @@ const handleChangeKey = (direction) => {
 // === 2. 鍵盤データ (自動生成 C0〜B8) ===
 const WHITE_KEY_WIDTH = 52.5
 const OCTAVE_WIDTH = WHITE_KEY_WIDTH * 7 // 1オクターブの幅 (367.5px)
-// ↓↓↓ この行を追加！ ↓↓↓
 const SEMITONE_WIDTH = OCTAVE_WIDTH / 12 // 1半音あたりのピクセル幅 (30.625px)
 
+// ★ 白鍵の種類ごとの「正しい幅」を定義 ★
+// C, D, E は少し細く (5半音分 / 3鍵)
+const WIDTH_TYPE_1 = (SEMITONE_WIDTH * 5) / 3
+// F, G, A, B は少し太く (7半音分 / 4鍵)
+const WIDTH_TYPE_2 = (SEMITONE_WIDTH * 7) / 4
+
 // C基準の1オクターブのレイアウトテンプレート
+// 白鍵には width を、黒鍵には left (グリッド基準) を設定
 const oneOctaveTemplate = [
-  { note: 'C', type: 'white', left: 0 },
-  { note: 'C#', type: 'black', left: 36.75 },
-  { note: 'D', type: 'white', left: 52.5 },
-  { note: 'D#', type: 'black', left: 89.25 },
-  { note: 'E', type: 'white', left: 105 },
-  { note: 'F', type: 'white', left: 157.5 },
-  { note: 'F#', type: 'black', left: 194.25 },
-  { note: 'G', type: 'white', left: 210 },
-  { note: 'G#', type: 'black', left: 246.75 },
-  { note: 'A', type: 'white', left: 262.5 },
-  { note: 'A#', type: 'black', left: 299.25 },
-  { note: 'B', type: 'white', left: 315 },
+  { note: 'C', type: 'white', width: WIDTH_TYPE_1 },
+  { note: 'C#', type: 'black', left: SEMITONE_WIDTH * 1 },
+  { note: 'D', type: 'white', width: WIDTH_TYPE_1 },
+  { note: 'D#', type: 'black', left: SEMITONE_WIDTH * 3 },
+  { note: 'E', type: 'white', width: WIDTH_TYPE_1 },
+  { note: 'F', type: 'white', width: WIDTH_TYPE_2 },
+  { note: 'F#', type: 'black', left: SEMITONE_WIDTH * 6 },
+  { note: 'G', type: 'white', width: WIDTH_TYPE_2 },
+  { note: 'G#', type: 'black', left: SEMITONE_WIDTH * 8 },
+  { note: 'A', type: 'white', width: WIDTH_TYPE_2 },
+  { note: 'A#', type: 'black', left: SEMITONE_WIDTH * 10 },
+  { note: 'B', type: 'white', width: WIDTH_TYPE_2 },
 ]
 
 // C0〜B8 (9オクターブ・108キー) を自動生成する関数
 const generateKeys = () => {
   const newKeys = []
+
   for (let octave = 0; octave <= 8; octave++) {
+    // オクターブごとの開始位置を計算
+    const octaveStartLeft = octave * OCTAVE_WIDTH
+
+    // 白鍵の積み上げ位置リセット（オクターブ内での相対位置計算用）
+    let whiteKeyOffset = 0
+
     for (const keyTemplate of oneOctaveTemplate) {
-      newKeys.push({
-        ...keyTemplate,
-        note: keyTemplate.note + octave, // "C" + 0 -> "C0"
-        left: keyTemplate.left + octave * OCTAVE_WIDTH,
-      })
+      if (keyTemplate.type === 'white') {
+        newKeys.push({
+          ...keyTemplate,
+          note: keyTemplate.note + octave,
+          // 白鍵の位置は、前の白鍵の幅を足していくことで決定
+          left: octaveStartLeft + whiteKeyOffset,
+        })
+        // 次のために幅を足す
+        whiteKeyOffset += keyTemplate.width
+      } else {
+        newKeys.push({
+          ...keyTemplate,
+          note: keyTemplate.note + octave,
+          // 黒鍵の位置は、グリッド（半音）基準で厳密に決める
+          left: octaveStartLeft + keyTemplate.left,
+        })
+      }
     }
   }
   return newKeys
 }
 
 const keys = generateKeys()
-const TOTAL_PIANO_WIDTH = OCTAVE_WIDTH * 9 // 9オクターブ分の幅
+// TOTAL_PIANO_WIDTH も最後のキーの位置と幅から正確に計算
+const TOTAL_PIANO_WIDTH = keys[keys.length - 1].left + keys[keys.length - 1].width
 
 // === 3. サウンドエンジン ===
 const { playNote, stopNote } = useAudio()
@@ -663,9 +689,12 @@ const landscapeTransform = computed(() => {
   left: 0;
   width: 3307.5px;
   z-index: 5;
-  top: 50%;
-  height: 484px; /* 210px*2 + 64px隙間 */
-  margin-top: -242px; /* piano-topと同じ */
+  /* ↓↓↓ ここを修正！ 画面いっぱいに広げる ↓↓↓ */
+  top: 0;
+  bottom: 0;
+  height: 100%;
+  margin-top: 0;
+  /* ↑↑↑↑↑↑ */
   overflow: hidden;
   transition: transform 0.3s ease-out;
 }
@@ -675,20 +704,42 @@ const landscapeTransform = computed(() => {
 }
 /* ↑↑↑ ここまで置き換え ↑↑↑ */
 
-/* ... (semitone-band 以下のスタイルは変更なし) ... */
+/* 帯（通常時） */
 .portrait-view .semitone-band {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 30.625px;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+
+  /* ↓ box-sizing は削除！ (デフォルトの content-box に戻す) */
+  /* box-sizing: border-box; */
+
+  /* 右は薄い白（通常通り） */
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+
+  /* 左の border は削除！ (ズレの原因になるから) */
+  /* border-left: 1px solid transparent; */
+
   background-color: transparent;
-  transition: background-color 0.1s ease-out;
-}
-.portrait-view .semitone-band.is-highlighted {
-  background-color: rgba(255, 255, 255, 0.4); /* 白 */
+
+  /* アニメーション設定 */
+  transition:
+    background-color 0.1s ease-out,
+    border-right-color 0.1s ease-out,
+    box-shadow 0.1s ease-out; /* box-shadow もアニメーションさせる */
 }
 
+/* 帯（ハイライト時） */
+.portrait-view .semitone-band.is-highlighted {
+  background-color: rgba(255, 255, 255, 0.4);
+
+  /* 1. 右の線を「黒」にする */
+  border-right-color: rgba(0, 0, 0, 0.6);
+
+  /* 2. 左の線を「内側の影」として描く！ (これがズレない秘訣) */
+  /* inset 1px 0 0 0 = 左の内側に1pxの影を落とす */
+  box-shadow: inset 1px 0 0 0 rgba(0, 0, 0, 0.6);
+}
 /* --- 2. 横画面 (ランドスケープ) のスタイル --- */
 @media (orientation: landscape) {
   .portrait-view {
