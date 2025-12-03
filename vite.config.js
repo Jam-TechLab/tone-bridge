@@ -20,12 +20,12 @@ export default defineConfig({
         orientation: 'any', // 縦でも横でも使えるようにする
         icons: [
           {
-            src: '/android-chrome-192x192.png', // ← 絶対パスに修正！
+            src: '/public/android-chrome-192x192.png', // ← 絶対パスに修正！
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: '/android-chrome-512x512.png', // ← 絶対パスに修正！
+            src: '/public/android-chrome-512x512.png', // ← 絶対パスに修正！
             sizes: '512x512',
             type: 'image/png',
           },
