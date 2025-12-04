@@ -189,50 +189,32 @@ const totalSwipeOffset = computed(() => {
 
 // --- 最終的なトランスフォーム値を計算 ---
 
-// 上の鍵盤のトランスフォーム値
-const topKeyboardTransform = computed(() => {
-  let totalOffset = totalSwipeOffset.value // 1. スワイプ量は常に追加
+// --- 以前の top/bottomKeyboardTransform は削除して、これにする！ ---
 
-  // 2. 「上」にいるのは「絶対音」か？
-  if (isAbsoluteOnTop.value) {
-    // 上は「絶対音」
-    // もし「絶対音が動く」設定なら、スライド(左)
-    if (!isAbsoluteKeyboardFixed.value) {
-      totalOffset += slideOffset.value
-    }
-  } else {
-    // 上は「相対音」
-    // もし「相対音が動く」設定なら、スライド(右)
-    if (isAbsoluteKeyboardFixed.value) {
-      // (絶対音が固定 = 相対音が動く)
-      totalOffset -= slideOffset.value
-    }
+// 絶対音鍵盤（Absolute）のトランスフォーム
+// ルール：絶対音が固定なら動かない。相対音が固定なら、絶対音はスライドする。
+const absoluteTransform = computed(() => {
+  let x = totalSwipeOffset.value
+  if (!isAbsoluteKeyboardFixed.value) {
+    x += slideOffset.value
   }
-
-  return `translateX(${totalOffset}px)`
+  return `translateX(${x}px)`
 })
 
-// 下の鍵盤のトランスフォーム値
-const bottomKeyboardTransform = computed(() => {
-  let totalOffset = totalSwipeOffset.value // 1. スワイプ量は常に追加
-
-  // 2. 「下」にいるのは「絶対音」か？
-  if (!isAbsoluteOnTop.value) {
-    // 下は「絶対音」
-    // もし「絶対音が動く」設定なら、スライド(左)
-    if (!isAbsoluteKeyboardFixed.value) {
-      totalOffset += slideOffset.value
-    }
-  } else {
-    // 下は「相対音」
-    // もし「相対音が動く」設定なら、スライド(右)
-    if (isAbsoluteKeyboardFixed.value) {
-      // (絶対音が固定 = 相対音が動く)
-      totalOffset -= slideOffset.value
-    }
+// 相対音鍵盤（Relative）のトランスフォーム
+// ルール：相対音が固定なら動かない。絶対音が固定なら、相対音はスライドする。
+const relativeTransform = computed(() => {
+  let x = totalSwipeOffset.value
+  if (isAbsoluteKeyboardFixed.value) {
+    x -= slideOffset.value
   }
+  return `translateX(${x}px)`
+})
 
-  return `translateX(${totalOffset}px)`
+// ガイドライン（背景の帯）用
+// 修正：グリッドの中身は「物理的な音の並び」だから、常に「絶対音鍵盤」と同じ動きをするのが正解！
+const gridTransform = computed(() => {
+  return absoluteTransform.value
 })
 
 // === 7. タッチイベントハンドラ ===
@@ -504,7 +486,7 @@ const landscapeTransform = computed(() => {
 
       <div
         class="guide-lines-container"
-        :style="{ transform: isAbsoluteOnTop ? topKeyboardTransform : bottomKeyboardTransform }"
+        :style="{ transform: gridTransform }"
         :class="{ 'is-swiping': swipeMode, width: TOTAL_PIANO_WIDTH + 'px' }"
       >
         <div
@@ -517,44 +499,25 @@ const landscapeTransform = computed(() => {
       </div>
 
       <div
-        class="piano piano-top"
-        :class="{ 'is-swiping': swipeMode }"
-        :style="{ transform: topKeyboardTransform, width: TOTAL_PIANO_WIDTH + 'px' }"
+        class="piano"
+        :class="[isAbsoluteOnTop ? 'pos-upper' : 'pos-lower', { 'is-swiping': swipeMode }]"
+        :style="{ transform: absoluteTransform, width: TOTAL_PIANO_WIDTH + 'px' }"
       >
         <PianoKeyboard
-          v-if="isAbsoluteOnTop"
           :keys="keys"
           :is-pressed-set="pressedKeys"
           keyboard-type="absolute"
           :get-label-top="getAbsoluteLabel"
-          :get-label-bottom="() => ''"
-        />
-        <PianoKeyboard
-          v-else
-          :keys="relativeKeyData"
-          :is-pressed-set="pressedKeys"
-          keyboard-type="relative"
-          :transpose-index="currentKeyIndex"
-          :get-label-top="getRelativeLabel"
           :get-label-bottom="() => ''"
         />
       </div>
 
       <div
-        class="piano piano-bottom"
-        :class="{ 'is-swiping': swipeMode }"
-        :style="{ transform: bottomKeyboardTransform, width: TOTAL_PIANO_WIDTH + 'px' }"
+        class="piano"
+        :class="[!isAbsoluteOnTop ? 'pos-upper' : 'pos-lower', { 'is-swiping': swipeMode }]"
+        :style="{ transform: relativeTransform, width: TOTAL_PIANO_WIDTH + 'px' }"
       >
         <PianoKeyboard
-          v-if="!isAbsoluteOnTop"
-          :keys="keys"
-          :is-pressed-set="pressedKeys"
-          keyboard-type="absolute"
-          :get-label-top="getAbsoluteLabel"
-          :get-label-bottom="() => ''"
-        />
-        <PianoKeyboard
-          v-else
           :keys="relativeKeyData"
           :is-pressed-set="pressedKeys"
           keyboard-type="relative"
@@ -679,14 +642,29 @@ const landscapeTransform = computed(() => {
   background-color: #38a070;
 }
 
-.portrait-view .piano-top {
+/* 共通設定：上下移動もアニメーションさせる */
+.portrait-view .piano {
+  /* transform(横移動) と top/margin-top(縦移動) の両方をアニメーション */
+  transition:
+    transform 0.3s ease-out,
+    top 0.3s ease-out,
+    margin-top 0.3s ease-out;
+  left: 0;
+  position: absolute;
+  /* heightなどは共通CSSから継承 */
+}
+
+/* 上位置 (Upper Position) */
+.portrait-view .piano.pos-upper {
   top: 50%;
-  margin-top: -242px; /* -(210px + 64px/2) = -242px */
+  margin-top: -242px; /* -(210px + 64px/2) */
   z-index: 10;
 }
-.portrait-view .piano-bottom {
+
+/* 下位置 (Lower Position) */
+.portrait-view .piano.pos-lower {
   top: 50%;
-  margin-top: 32px; /* +(64px/2) = 32px */
+  margin-top: 32px; /* +(64px/2) */
   z-index: 10;
 }
 .portrait-view .guide-lines-container {
