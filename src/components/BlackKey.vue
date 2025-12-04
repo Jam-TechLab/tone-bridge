@@ -38,7 +38,7 @@ div.pressed {
 }
 
 .label {
-  font-family: 'Menlo', 'Monaco', monospace;
+  /* font-family: 'Menlo', 'Monaco', monospace; */
   color: white; /* 白文字 */
   user-select: none;
   line-height: 1.1;

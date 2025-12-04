@@ -603,6 +603,23 @@ const landscapeTransform = computed(() => {
 
 <style scoped>
 /* --- 共通のスタイル --- */
+
+:global(body) {
+  /* ↓↓↓ 最終フォントスタックを適用！ ↓↓↓ */
+  font-family:
+    Avenir, Inter, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', '游ゴシック',
+    'Noto Sans JP', sans-serif;
+  /* ↑↑↑↑↑↑ */
+
+  margin: 0;
+  padding: 0;
+  background-color: #222;
+  color: white;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+}
+
 .view {
   display: flex;
   flex-direction: column;
@@ -625,18 +642,6 @@ const landscapeTransform = computed(() => {
   transition: none;
 }
 
-/* --- 1. 縦画面 (ポートレート) のスタイル --- */
-.landscape-view {
-  display: none; /* 普段は横画面を隠す */
-}
-.portrait-view .keyboard-wrapper {
-  flex-grow: 1;
-  min-height: 0;
-  width: 100%;
-  overflow: hidden;
-  display: block;
-  position: relative;
-}
 /* --- 1. 縦画面 (ポートレート) のスタイル --- */
 .landscape-view {
   display: none;

@@ -36,7 +36,7 @@ div.pressed {
 }
 
 .label {
-  font-family: 'Menlo', 'Monaco', monospace;
+  /* font-family: 'Menlo', 'Monaco', monospace; */
   color: #333;
   user-select: none;
   line-height: 1.1; /* 行の高さを少し詰めて上下の間隔を調整 */

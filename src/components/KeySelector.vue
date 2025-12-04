@@ -48,7 +48,7 @@ const emit = defineEmits(['change-key', 'toggle-fixed'])
   margin: 0;
   color: #42b883;
   font-size: 1.4rem;
-  font-family: 'Menlo', 'Monaco', monospace;
+  /* font-family: 'Menlo', 'Monaco', monospace; */
   flex-grow: 1;
   text-align: center;
   padding: 0 10px;
